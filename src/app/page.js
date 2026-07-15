@@ -1,65 +1,392 @@
-import Image from "next/image";
+'use client';
+
+import { useState, useEffect } from 'react';
+import { supabase } from './supabaseClient';
+import Auth from './Auth';
 
 export default function Home() {
+  // Application State
+  const [prayers, setPrayers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [user, setUser] = useState(null);
+  const [filterMyRequests, setFilterMyRequests] = useState(false);
+
+  // Form Field States
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [author, setAuthor] = useState('');
+  const [isAnonymous, setIsAnonymous] = useState(false);
+
+  // Fetch prayers from Supabase on component mount
+  useEffect(() => {
+    // Check login status
+    supabase.auth.getUser().then(({data: {user}}) => {
+      setUser(user);
+    });
+    
+    // listen for login/logout state changes
+    const {data:{subscription}} = supabase.auth.onAuthStateChange((_event, session) => { 
+      setUser(session?.user ?? null);
+    });
+
+    // Fetch feed data
+    async function fetchPrayers() {
+      try {
+        setLoading(true);
+        // Query the 'prayers' table ordered by the newest post first
+        const { data, error } = await supabase
+          .from('prayers')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        setPrayers(data || []);
+      } catch (error) {
+        console.error('Error loading prayers:', error.message);
+        alert('Could not sync with the database. Please try refreshing.');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchPrayers();
+
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listening for INSERT, UPDATE, DELETE
+          schema: 'public',
+          table: 'prayers',
+        },
+      (payload) => {
+        const { eventType, new: newRow, old: oldRow } = payload;
+
+        if (eventType === 'INSERT') {
+          setPrayers((prev) => {
+            if (prev.some((p) => p.id === newRow.id)) return prev;
+            return [newRow, ...prev];
+          });
+        } else if (eventType === 'UPDATE') {
+          setPrayers((prev) => prev.map((p) => (p.id ===  newRow. id ? newRow : p))
+        );
+      } else if (eventType === 'DELETE') {
+        setPrayers((prev) => prev.filter((p) => p.id !== oldRow.id));
+      }
+    }
+  )
+  .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  // 2. Submit a new prayer request directly to the database
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!user) return;
+
+    if (!title.trim() || !description.trim()) {
+      alert('Please fill out both the title and prayer request description.');
+      return;
+    }
+
+    const payload = {
+      title: title.trim(),
+      description: description.trim(),
+      author: isAnonymous ? 'Anonymous' : author.trim() || 'Church Member',
+      is_anonymous: isAnonymous,
+      prayer_count: 0,
+      user_id: user.id,
+    };
+
+    try {
+      // Insert new row into PostgreSQL
+      const { data, error } = await supabase
+        .from('prayers')
+        .insert([payload])
+        .select(); // Returns the newly created row including its database ID
+
+      if (error) throw error;
+
+      // Optimistically update frontend state by appending the database response
+      if (data) {
+        setPrayers([data[0], ...prayers]);
+      }
+
+      // Reset form controls
+      setTitle('');
+      setDescription('');
+      setAuthor('');
+      setIsAnonymous(false);
+      setShowForm(false);
+    } catch (error) {
+      console.error('Error submitting prayer:', error.message);
+      alert('Failed to send request. Check your connection and try again.');
+    }
+  };
+
+  // 3. Atomically increment the "I Prayed" count on the database
+  const handleIPrayed = async (id, currentCount) => {
+    if (!user) {
+      alert('Please sign in to let this member know you are praying for them!');
+      setShowForm(true);
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('prayers')
+        .update({ prayer_count: currentCount + 1 })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      // Sync UI state locally
+      setPrayers(
+        prayers.map((prayer) =>
+          prayer.id === id
+            ? { ...prayer, prayer_count: prayer.prayer_count + 1 }
+            : prayer
+        )
+      );
+    } catch (error) {
+      console.error('Error updating interaction counter:', error.message);
+    }
+  };
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+  }
+
+  const handleDelete = async (id, postUserId) => {
+    const ADMIN_EMAIL = 'heyitstan@gmail.com';
+    const isAdmin = user?.email === ADMIN_EMAIL;
+    
+    if (user.id !== postUserId && !isAdmin) {
+      alert("You can only delete your own prayer requests!");
+      return;
+    }
+
+    if (!confirm("Are you sure you want to remove this prayer request?")) return;
+
+    try {
+      const {error} = await supabase
+      .from('prayers')
+      .delete()
+      .eq('id', id);
+
+      if (error) throw error;
+
+      setPrayers(prayers.filter((p) => p.id !== id));
+    } catch (error) {
+      console.error(error.message);
+      alert('Failed to delete request: ') + error.message();
+    }
+  }
+
+  const displayedPrayers = filterMyRequests
+    ? prayers.filter((p) => p.user_id === user?.id) : prayers;
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.js file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <main className="min-h-screen bg-gray-100 px-4 py-6 md:py-12 pb-24 relative">
+      {/* CASE 1: User is NOT logged in -> Show ONLY the Auth component screen */}
+      {!user ? (
+        <div className="max-w-md mx-auto pt-12">
+          <Auth onAuthSuccess={() => setShowForm(false)} />
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      ) : (
+        /* CASE 2: User IS logged in -> Reveal the entire app feed and workspace */
+        <div className="max-w-md mx-auto space-y-6">
+          
+          {/* Header App Bar */}
+          <header className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex justify-between items-center">
+            <div>
+              <h1 className="text-xl font-bold text-blue-900 tracking-tight">Church Prayer Wall</h1>
+              <button onClick={handleSignOut} className="text-[11px] text-red-500 hover:underline font-medium block mt-0.5">
+                Sign Out ({user.email.split('@')[0]})
+              </button>
+            </div>
+            
+            <button
+              onClick={() => setShowForm(!showForm)}
+              className={`text-xs font-semibold px-3 py-2 rounded-lg border transition min-h-[36px] ${
+                showForm 
+                  ? 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200' 
+                  : 'bg-blue-600 text-white border-transparent hover:bg-blue-700'
+              }`}
+            >
+              {showForm ? 'View Feed' : 'New Request'}
+            </button>
+          </header>
+
+          {/* Request Submission Form */}
+          {showForm && (
+            <section className="bg-white p-5 rounded-xl shadow-md border border-blue-100 transition-all duration-200">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-base font-semibold text-gray-800">Submit a New Prayer Request</h2>
+                <button onClick={() => setShowForm(false)} className="text-gray-400 text-sm p-1">✕</button>
+              </div>
+              
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label htmlFor="title" className="block text-xs font-medium text-gray-600 mb-1">Prayer Title *</label>
+                  <input
+                    id="title"
+                    type="text"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="e.g., Healing for my grandmother"
+                    className="w-full text-sm text-gray-900 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="description" className="block text-xs font-medium text-gray-600 mb-1">Your Request *</label>
+                  <textarea
+                    id="description"
+                    rows="3"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="How can our church community pray for you?"
+                    className="w-full text-sm text-gray-900 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 resize-none"
+                    required
+                  />
+                </div>
+
+                {!isAnonymous && (
+                  <div>
+                    <label htmlFor="author" className="block text-xs font-medium text-gray-600 mb-1">Your Name (Optional)</label>
+                    <input
+                      id="author"
+                      type="text"
+                      value={author}
+                      onChange={(e) => setAuthor(e.target.value)}
+                      placeholder="e.g., Jane Doe"
+                      className="w-full text-sm text-gray-900 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                    />
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between pt-1">
+                  <label htmlFor="anonymous-toggle" className="text-xs font-medium text-gray-600 cursor-pointer">Share anonymously</label>
+                  <input
+                    id="anonymous-toggle"
+                    type="checkbox"
+                    checked={isAnonymous}
+                    onChange={(e) => setIsAnonymous(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm py-2 px-4 rounded-lg transition min-h-[44px]"
+                >
+                  Post to Prayer Wall
+                </button>
+              </form>
+            </section>
+          )}
+
+          {/* Dynamic Prayer Feed */}
+          <section className="space-y-4" aria-label="Active Prayer Requests">
+            <div className='flex justify-between items-center px-1'>
+              <h2 className='text-xs font-bold text-gray-500 tracking-wider uppercase'>
+                {filterMyRequests ? 'My Requests' : 'Community Feed'} ({displayedPrayers.length})
+              </h2>
+
+              <div className='flex bg-gray-200 p-0.5 rounded-lg text-xs'>
+                <button
+                type="button"
+                onClick={() => setFilterMyRequests(false)}
+                className={`px-3 py-1 rounded-md font-medium transition ${!filterMyRequests 
+                ? 'bg-white text-blue-900 shadow-sm' 
+                : 'text-gray-600 hover:text-gray-900'}`}>
+                  All
+                </button>
+                <button 
+                type="button"
+                onClick={() => setFilterMyRequests(true)}
+                className={`px-3 py-1 rounded-md font-medium transition ${filterMyRequests 
+                  ? 'bg-white text-blue-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+                }`}>
+                  Mine
+                </button>
+              </div>
+            </div>
+
+            {/* <h2 className="text-xs font-bold text-gray-500 tracking-wider uppercase px-1">
+              Community Prayer Feed ({prayers.length})
+            </h2> */}
+            
+            {loading ? (
+              <div className="text-center py-12 text-sm text-gray-400 font-medium">
+                Synchronizing with prayer wall...
+              </div>
+            ) : prayers.length === 0 ? (
+              <div className="text-center py-12 text-sm text-gray-400 bg-white rounded-xl border border-gray-200">
+                {filterMyRequests 
+                ? "You haven't posted any prayer requests yet."
+                : "No prayer requests shared yet. Be the first to share!"}
+              </div>
+            ) : (
+              displayedPrayers.map((prayer) => (
+                <article key={prayer.id} className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 space-y-3">
+                  <div className="flex justify-between items-start">
+                    <h3 className="font-semibold text-gray-900 text-base leading-tight">{prayer.title}</h3>
+                    <div className='flex items-center gap-2'>
+                      {(user.id === prayer.user_id || user.email === 'heyitstan@gmail.com') && (
+                        <button 
+                        onClick={()=>handleDelete(prayer.id, prayer.user_id)}
+                        className="text-[11px] text-red-500 hover:text-red-700 font-medium px-2 py-0.5 rounded bg-red-50 hover:bg-red-100 transition">
+                          Delete
+                        </button>
+                      )}
+                      <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{prayer.author}</span>
+                    </div>
+                  </div>
+                  
+                  <p className="text-sm text-gray-600 whitespace-pre-wrap leading-relaxed">{prayer.description}</p>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-gray-100 text-xs text-gray-400">
+                    <span>
+                      {new Date(prayer.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                    </span>
+                    
+                    <button
+                      onClick={() => handleIPrayed(prayer.id, prayer.prayer_count)}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 font-medium transition cursor-pointer min-h-[36px]"
+                    >
+                      🙏 <span>I Prayed ({prayer.prayer_count})</span>
+                    </button>
+                  </div>
+                </article>
+              ))
+            )}
+          </section>
+
+          {/* Mobile Floating Action Button */}
+          {!showForm && (
+            <button
+              onClick={() => {
+                setShowForm(true);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className="fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-full shadow-2xl flex items-center justify-center w-14 h-14 z-50 md:hidden"
+            >
+              <span className="text-2xl font-light leading-none">+</span>
+            </button>
+          )}
+
         </div>
-      </main>
-    </div>
+      )}
+    </main>
   );
 }

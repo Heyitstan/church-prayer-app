@@ -1,0 +1,56 @@
+[
+  {
+    "id": "1",
+    "title": "Pray for guidance for the Huynh family",
+    "description": "Please pray God reveals his will for our family in serving the Church.",
+    "author": "Lam Huynh",
+    "isAnonymous": false,
+    "prayerCount": 9,
+    "createdAt": "2026-07-13T10:00:00Z"
+  },
+  {
+    "id": "2",
+    "title": "Comfort for the Smith Family",
+    "description": "Please pray for the Smith family as they navigate the passing of their grandfather. Pray for peace and comfort during the memorial service this Friday.",
+    "author": "Pastor John",
+    "isAnonymous": false,
+    "prayerCount": 24,
+    "createdAt": "2026-07-13T10:00:00Z"
+  },
+  {
+    "id": "3",
+    "title": "Job Interview Wisdom",
+    "description": "I have a final round interview on Wednesday morning for a new management role. Praying for clarity of mind, confidence, and that God's will be done.",
+    "author": "Anonymous",
+    "isAnonymous": true,
+    "prayerCount": 12,
+    "createdAt": "2026-07-13T08:15:00Z"
+  },
+    {
+    "id": "4",
+    "title": "Pray for guidance for the Huynh family",
+    "description": "Please pray God reveals his will for our family in serving the Church.",
+    "author": "Lam Huynh",
+    "isAnonymous": false,
+    "prayerCount": 9,
+    "createdAt": "2026-07-13T10:00:00Z"
+  },
+  {
+    "id": "5",
+    "title": "Comfort for the Smith Family",
+    "description": "Please pray for the Smith family as they navigate the passing of their grandfather. Pray for peace and comfort during the memorial service this Friday.",
+    "author": "Pastor John",
+    "isAnonymous": false,
+    "prayerCount": 24,
+    "createdAt": "2026-07-13T10:00:00Z"
+  },
+  {
+    "id": "6",
+    "title": "Job Interview Wisdom",
+    "description": "I have a final round interview on Wednesday morning for a new management role. Praying for clarity of mind, confidence, and that God's will be done.",
+    "author": "Anonymous",
+    "isAnonymous": true,
+    "prayerCount": 12,
+    "createdAt": "2026-07-13T08:15:00Z"
+  }
+]

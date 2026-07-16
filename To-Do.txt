@@ -1,0 +1,3 @@
+Translate function
+
+mark prayer request as answered

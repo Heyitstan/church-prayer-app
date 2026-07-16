@@ -18,23 +18,100 @@ export default function Home() {
   const [author, setAuthor] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(false);
 
+  // // Fetch prayers from Supabase on component mount
+  // useEffect(() => {
+  //   // Check login status
+  //   supabase.auth.getUser().then(({data: {user}}) => {
+  //     setUser(user);
+  //   });
+    
+  //   // listen for login/logout state changes
+  //   const {data:{subscription}} = supabase.auth.onAuthStateChange((_event, session) => { 
+  //     setUser(session?.user ?? null);
+  //   });
+
+  //   // Fetch feed data
+  //   async function fetchPrayers() {
+  //     try {
+  //       setLoading(true);
+  //       // Query the 'prayers' table ordered by the newest post first
+  //       const { data, error } = await supabase
+  //         .from('prayers')
+  //         .select('*')
+  //         .order('created_at', { ascending: false });
+
+  //       if (error) throw error;
+  //       setPrayers(data || []);
+  //     } catch (error) {
+  //       console.error('Error loading prayers:', error.message);
+  //       alert('Could not sync with the database. Please try refreshing.');
+  //     } finally {
+  //       setLoading(false);
+  //     }
+  //   }
+
+  //   fetchPrayers();
+
+  //   const channel = supabase
+  //     .channel('schema-db-changes')
+  //     .on(
+  //       'postgres_changes',
+  //       {
+  //         event: '*', // Listening for INSERT, UPDATE, DELETE
+  //         schema: 'public',
+  //         table: 'prayers',
+  //       },
+  //     (payload) => {
+  //       const { eventType, new: newRow, old: oldRow } = payload;
+
+  //       if (eventType === 'INSERT') {
+  //         setPrayers((prev) => {
+  //           if (prev.some((p) => p.id === newRow.id)) return prev;
+  //           return [newRow, ...prev];
+  //         });
+  //       } else if (eventType === 'UPDATE') {
+  //         setPrayers((prev) => prev.map((p) => (p.id ===  newRow. id ? newRow : p))
+  //       );
+  //     } else if (eventType === 'DELETE') {
+  //       setPrayers((prev) => prev.filter((p) => p.id !== oldRow.id));
+  //     }
+  //   }
+  // )
+  // .subscribe();
+
+  //   return () => {
+  //     subscription.unsubscribe();
+  //     supabase.removeChannel(channel);
+  //   };
+  // }, []);
+
   // Fetch prayers from Supabase on component mount
   useEffect(() => {
-    // Check login status
-    supabase.auth.getUser().then(({data: {user}}) => {
-      setUser(user);
+    let isMounted = true;
+
+    // 1. Check local session immediately on mount
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (isMounted) {
+        setUser(session?.user ?? null);
+      }
     });
     
-    // listen for login/logout state changes
-    const {data:{subscription}} = supabase.auth.onAuthStateChange((_event, session) => { 
-      setUser(session?.user ?? null);
+    // 2. Listen for login/logout state changes (runs when OAuth redirects back)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => { 
+      if (isMounted) {
+        setUser(session?.user ?? null);
+
+        // Clear the messy hash fragment from the URL after signing in
+        if (event === 'SIGNED_IN') {
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+      }
     });
 
-    // Fetch feed data
+    // 3. Fetch feed data
     async function fetchPrayers() {
       try {
         setLoading(true);
-        // Query the 'prayers' table ordered by the newest post first
         const { data, error } = await supabase
           .from('prayers')
           .select('*')
@@ -52,34 +129,35 @@ export default function Home() {
 
     fetchPrayers();
 
+    // 4. Realtime listener setup
     const channel = supabase
       .channel('schema-db-changes')
       .on(
         'postgres_changes',
         {
-          event: '*', // Listening for INSERT, UPDATE, DELETE
+          event: '*', 
           schema: 'public',
           table: 'prayers',
         },
-      (payload) => {
-        const { eventType, new: newRow, old: oldRow } = payload;
+        (payload) => {
+          const { eventType, new: newRow, old: oldRow } = payload;
 
-        if (eventType === 'INSERT') {
-          setPrayers((prev) => {
-            if (prev.some((p) => p.id === newRow.id)) return prev;
-            return [newRow, ...prev];
-          });
-        } else if (eventType === 'UPDATE') {
-          setPrayers((prev) => prev.map((p) => (p.id ===  newRow. id ? newRow : p))
-        );
-      } else if (eventType === 'DELETE') {
-        setPrayers((prev) => prev.filter((p) => p.id !== oldRow.id));
-      }
-    }
-  )
-  .subscribe();
+          if (eventType === 'INSERT') {
+            setPrayers((prev) => {
+              if (prev.some((p) => p.id === newRow.id)) return prev;
+              return [newRow, ...prev];
+            });
+          } else if (eventType === 'UPDATE') {
+            setPrayers((prev) => prev.map((p) => (p.id === newRow.id ? newRow : p)));
+          } else if (eventType === 'DELETE') {
+            setPrayers((prev) => prev.filter((p) => p.id !== oldRow.id));
+          }
+        }
+      )
+      .subscribe();
 
     return () => {
+      isMounted = false;
       subscription.unsubscribe();
       supabase.removeChannel(channel);
     };

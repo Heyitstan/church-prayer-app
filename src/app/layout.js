@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 export const metadata = {
   title: "Church Prayer Wall",
   description: "Share and support community prayer requests.",
-  manifest:'/manifest.json',
+  manifest: "/manifest.json",
 };
 
 export default function RootLayout({ children }) {

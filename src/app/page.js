@@ -284,7 +284,7 @@ export default function Home() {
           {/* Header App Bar */}
           <header className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex justify-between items-center">
             <div>
-              <h1 className="text-xl font-bold text-blue-900 tracking-tight">Church Prayer Wall</h1>
+              <h1 className="text-xl font-bold text-blue-900 tracking-tight">VBCG Prayer Wall</h1>
               <button onClick={handleSignOut} className="text-[11px] text-red-500 hover:underline font-medium block mt-0.5">
                 Sign Out ({user.email.split('@')[0]})
               </button>

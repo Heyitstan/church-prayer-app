@@ -5,18 +5,27 @@ import {supabase} from './supabaseClient';
 
 export default function Auth({onAuthSuccess}) {
   const [isSignUp, setIsSignUp] = useState(false);
+  const [resetMode, setResetMode] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
 
 const handleAuth = async (e) => {
     e.preventDefault();
     setLoading(true);
     setErrorMsg('');
+    setSuccessMsg('');
 
     try {
-      if (isSignUp) {
+      if (resetMode) {
+        const {error} = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/update-password`,
+        });
+        if (error) throw error;
+        setSuccessMsg('Check your email for the secure password reset link!');
+      } else if (isSignUp) {
         // 1. Sign up the user account
         const { data, error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
@@ -44,16 +53,26 @@ return (
     <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200 space-y-4 max-w-md mx-auto">
       <div className="text-center">
         <h2 className="text-xl font-bold text-blue-900">
-          {isSignUp ? 'Create a Church Account' : 'Sign In to Prayer Wall'}
+        {resetMode ? 'Reset Your Password' : isSignUp ? 'Create a Church Account' : 'Sign In to Prayer Wall'}
         </h2>
-        <p className="text-xs text-gray-500 mt-1">
-          {isSignUp ? 'Join our community to share prayer requests' : 'Log in to share requests and pray for others'}
+        <p className='text-xs text-gray-500 mt-1'>
+          {resetMode
+            ? "Enter your email address and we'll send you a recovery link."
+            : isSignUp
+              ? 'Join our community to share prayer requests'
+              : 'Log in to share requests and pray for others'}
         </p>
       </div>
 
       {errorMsg && (
         <div className="text-xs font-medium text-red-600 bg-red-50 p-2 rounded-lg border border-red-100">
           ⚠️ {errorMsg}
+        </div>
+      )}
+
+      {successMsg && (
+        <div className='text-xs font-medium text-blue-600 bg-blue-50 p-2 rounded-lg border border-blue-100'>
+          ℹ️ {successMsg}
         </div>
       )}
 
@@ -70,35 +89,65 @@ return (
           />
         </div>
 
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Password</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="••••••••"
-            className="w-full text-sm px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 text-gray-900"
-            required
-          />
-        </div>
+        {!resetMode && (
+          <div>
+            <div className='flex justify-between items-center mb-1'>
+              <label className='block text-xs font-medium text-gray-600'>Password</label>
+              {!isSignUp && (
+                <button
+                  type="button"
+                  onClick={() => { 
+                    setResetMode(true); 
+                    setErrorMsg('');
+                    setSuccessMsg('');
+                  }}
+                  className='text-[11px] text-gray-400 hover:text-gray-600 underline transition'>
+                    Forgot Password?
+                  </button>
+              )}
+            </div>
+            <input 
+              type='password'
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder='........'
+              className='w-full text-sm px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 text-gray-900'
+              required />
+          </div>
+        )}
 
         <button
-          type="submit"
+          type='submit'
           disabled={loading}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm py-2 px-4 rounded-lg transition duration-200 shadow-sm min-h-[44px] disabled:opacity-50"
-        >
-          {loading ? 'Processing...' : isSignUp ? 'Sign Up' : 'Sign In'}
-        </button>
-      </form>
+          className='w-full bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm py-2 px-4 rounded-lg transition duration-200 shadow-sm min-h-[44px] disabled:opacity-50'>
+            {loading ? 'Processing...' : resetMode ? 'Send Recovery Link' : isSignUp ? 'Sign Up' : 'Sign In'}
+          </button>
+        </form>
 
-      <div className="text-center pt-2 border-t border-gray-100">
-        <button
-          type="button"
-          onClick={() => setIsSignUp(!isSignUp)}
-          className="text-xs text-blue-600 hover:underline font-medium"
-        >
-          {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
-        </button>
+        <div className='text-center pt-2 border-t border-gray-100 flex flex-col gap-2'>
+          {resetMode ? (
+            <button
+              type="button"
+              onClick={() => { 
+                setResetMode(false); 
+                setErrorMsg('');
+                setSuccessMsg('');
+              }}
+              className="text-xs text-blue-600 hover:underline font-medium">
+                Back to Sign In 
+            </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => { 
+                    setIsSignUp(!isSignUp);
+                    setErrorMsg('');
+                    setSuccessMsg('');
+                  }}
+                  className='text-xs text-blue-600 hover:underline font-medium'>
+                    {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
+                  </button>
+              )}
       </div>
     </div>
   );

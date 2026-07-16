@@ -218,17 +218,15 @@ export default function Home() {
 
     try {
       const { error } = await supabase
-        .from('prayers')
-        .update({ prayer_count: currentCount + 1 })
-        .eq('id', id);
+        .rpc('increment_prayer_count', {row_id: id});
 
       if (error) throw error;
 
       // Sync UI state locally
-      setPrayers(
-        prayers.map((prayer) =>
+      setPrayers((prevPrayers) =>
+        prevPrayers.map((prayer) =>
           prayer.id === id
-            ? { ...prayer, prayer_count: prayer.prayer_count + 1 }
+            ? { ...prayer, prayer_count: (prayer.prayer_count || 0) + 1 }
             : prayer
         )
       );
@@ -439,7 +437,7 @@ export default function Home() {
                     </span>
                     
                     <button
-                      onClick={() => handleIPrayed(prayer.id, prayer.prayer_count)}
+                      onClick={() => handleIPrayed(prayer.id)}
                       className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 font-medium transition cursor-pointer min-h-[36px]"
                     >
                       🙏 <span>I Prayed ({prayer.prayer_count})</span>

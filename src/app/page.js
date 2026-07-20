@@ -252,15 +252,23 @@ export default function Home() {
 
       {/* Public Banner Container */}
       {bannerText && (
-        <div className='bg-[url("/banner-bg.jpg")] bg-cover bg-center max-w-md mx-auto mb-4 p-4 rounded-xl shadow-sm text-center'>
-          <p className='text-m font-medium text-amber-900 italic mt-3'>
-            {bannerText}
-          </p>
-          {bannerReference && (
-            <p className='text-sm font-bold text-amber-700 mt-4 uppercase tracking-wider'>
-              - {bannerReference}
-            </p>
-          )}
+        <div className="max-w-md mx-auto w-full mb-4">
+          {/* 1. Container that holds the image */}
+          <div className='bg-[url("/banner-bg.jpg")] bg-cover bg-center rounded-2xl overflow-hidden shadow-lg relative min-h-[250px] flex items-center justify-center'>
+            
+            {/* 2. The "Shrunk" Frosted Container */}
+            <div className="bg-black/40 backdrop-blur-sm border border-white/10 rounded-xl p-4 m-4 inline-block text-center">
+              <p className='text-sm font-medium text-white italic leading-relaxed'>
+                {bannerText}
+              </p>
+              {bannerReference && (
+                <p className='text-xs font-bold text-white/80 mt-2 uppercase tracking-wider'>
+                  - {bannerReference}
+                </p>
+              )}
+            </div>
+            
+          </div>
         </div>
       )}
 

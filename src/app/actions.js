@@ -12,8 +12,19 @@ export async function updateBanner(formData) {
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
   if (!supabaseURL || !serviceRoleKey) {
-    throw new Error('Supabase environment variables are missing on the server.');
+    throw new Error('Server configuration error.');
   }
+
+  const adminClient = createClient(
+    supabaseURL,
+    serviceRoleKey,
+    {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false
+      },
+    }
+  );
 
   const cookieStore = await cookies();
   const ssrClient = createServerClient(
@@ -35,36 +46,32 @@ export async function updateBanner(formData) {
     }
   );
 
-  const { data: { user }, error: authError } = await ssrClient.auth.getUser();
+  const { data: { user } } = await ssrClient.auth.getUser();
 
-  if (authError || !user) {
-    throw new Error('Unauthorized: Invalid or missing user session.');
+  if (!user) {
+    throw new Error('Unauthorized: No user session.');
   }
 
-  const { data: roleData, error: roleError } = await ssrClient
+  const { data: roleData, error: roleError } = await adminClient
     .from('user_roles')
     .select('role')
     .eq('user_id', user.id)
     .maybeSingle();
 
   if (roleError || roleData?.role !== 'admin') {
-    throw new Error('Unauthorized: You do not have permission to perform this action.');
+    throw new Error('Unauthorized: Admin access required.');
   }
-
-  const adminClient = createClient(supabaseURL, serviceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false, },
-  });
-
-  const text = formData.get('banner_text');
-  const reference = formData.get('banner_reference');
 
   const {error} = await adminClient
     .from('site_settings')
-    .update({banner_text: text, banner_reference: reference})
+    .update({
+      banner_text: formData.get('banner_text'), 
+      banner_reference: formData.get('banner_reference')
+    })
     .eq('id', 1);
   
   if (error) {
-    throw new Error(`Failed to update site settings: ${error.message}`);
+    throw new Error(`Database error: ${error.message}`);
   }
 
   revalidatePath('/');

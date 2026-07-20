@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from './supabaseClient';
 import Auth from './Auth';
 import { updateBanner } from './actions';
+import { toast } from 'sonner';
 
 export default function Home() {
   // Application State
@@ -153,7 +154,7 @@ export default function Home() {
     if (!user) return;
 
     if (!title.trim() || !description.trim()) {
-      alert('Please fill out both the title and prayer request description.');
+      toast.error('Please fill out both the title and prayer request description.');
       return;
     }
 
@@ -181,7 +182,7 @@ export default function Home() {
       setShowForm(false);
     } catch (error) {
       console.error('Error submitting prayer:', error.message);
-      alert('Failed to send request. Check your connection and try again.');
+      toast.error('Failed to send request. Check your connection and try again.');
     }
   };
 
@@ -194,16 +195,16 @@ export default function Home() {
       setBannerText(formData.get('banner_text'));
       setBannerReference(formData.get('banner_reference'));
       setIsEditingBanner(false);
-      alert('Banner updated successfully!');
+      toast.success('Banner updated successfully!');
     } catch (err) {
-      alert(`Failed to update banner: ${err.message}`);
+      toast.error(`Failed to update banner: ${err.message}`);
     }
   };
 
   // 3. Atomically increment the "I Prayed" count on the database
   const handleIPrayed = async (id) => {
     if (!user) {
-      alert('Please sign in to let this member know you are praying for them!');
+      toast.error('Please sign in to let this member know you are praying for them!');
       return;
     }
 
@@ -223,7 +224,7 @@ export default function Home() {
 
   const handleDelete = async (id, postUserId) => {
     if (user?.id !== postUserId && !isAdmin) {
-      alert("You can only delete your own prayer requests!");
+      toast.error("You can only delete your own prayer requests!");
       return;
     }
 
@@ -238,7 +239,7 @@ export default function Home() {
       if (error) throw error;
     } catch (error) {
       console.error(error.message);
-      alert(`Failed to delete request: ${error.message}`);
+      toast.error(`Failed to delete request: ${error.message}`);
     }
   }
 

@@ -1,7 +1,9 @@
-Phone Number account creation
-
 Translate function
 
 mark prayer request as answered
 
 Data tracking like prayer requests, number of members, etc
+
+Username/password different from account creation verification
+or
+mobile number account creation

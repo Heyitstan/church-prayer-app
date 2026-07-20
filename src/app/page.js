@@ -5,6 +5,7 @@ import { supabase } from './supabaseClient';
 import Auth from './Auth';
 import { updateBanner } from './actions';
 import { toast } from 'sonner';
+import TagFilter from './TagFilter';
 
 export default function Home() {
   // Application State
@@ -13,6 +14,8 @@ export default function Home() {
   const [showForm, setShowForm] = useState(false);
   const [user, setUser] = useState(null);
   const [filterMyRequests, setFilterMyRequests] = useState(false);
+  const [tags, setTags] = useState([]);
+  const [selectedTag, setSelectedTag] = useState('All');
 
 
   // Banner States
@@ -28,6 +31,12 @@ export default function Home() {
   const [isAnonymous, setIsAnonymous] = useState(false);
 
   // Helper Functions
+  const handleTagToggle = (tag) => {
+    setTags(prev => 
+      prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
+    );
+  };
+
   const fetchBannerSettings = useCallback(async (isMounted) => {
     try {
       const { data, error } = await supabase
@@ -161,6 +170,7 @@ export default function Home() {
     const payload = {
       title: title.trim(),
       description: description.trim(),
+      tags: tags,
       author: isAnonymous ? 'Anonymous' : author.trim() || 'Church Member',
       is_anonymous: isAnonymous,
       prayer_count: 0,
@@ -244,8 +254,13 @@ export default function Home() {
     }
   }
 
-  const displayedPrayers = filterMyRequests
-    ? prayers.filter((p) => p.user_id === user?.id) : prayers;
+  const displayedPrayers = prayers.filter((p) =>
+    {
+      const matchesUser = filterMyRequests ? p.user_id === user?.id : true;
+      const matchesTag = selectedTag === 'All' ? true : (p.tags || []).includes(selectedTag);
+      return matchesUser && matchesTag;
+    }
+  );
 
   return (
     <main className="min-h-screen bg-gray-100 px-4 py-6 md:py-12 pb-24 relative">
@@ -381,6 +396,23 @@ export default function Home() {
                   />
                 </div>
 
+                <div className="flex flex-wrap gap-2">
+                  {['Healing', 'Family', 'Guidance', 'Praise', 'Loss'].map(tagOption => (
+                    <button
+                      key={tagOption}
+                      type="button"
+                      onClick={() => handleTagToggle(tagOption)}
+                      className={`px-3 py-1 rounded-full text-xs font-medium border ${
+                        tags.includes(tagOption) 
+                          ? 'bg-blue-600 text-white border-blue-600' 
+                          : 'bg-white text-gray-600 border-gray-300'
+                      }`}
+                    >
+                      {tagOption}
+                    </button>
+                  ))}
+                </div>
+
                 {!isAnonymous && (
                   <div>
                     <label htmlFor="author" className="block text-xs font-medium text-gray-600 mb-1">Your Name (Optional)</label>
@@ -418,6 +450,12 @@ export default function Home() {
 
           {/* Dynamic Prayer Feed */}
           <section className="space-y-4" aria-label="Active Prayer Requests">
+
+            <TagFilter
+              selectedTag={selectedTag}
+              onSelectTag={setSelectedTag}
+            />
+
             <div className='flex justify-between items-center px-1'>
               <h2 className='text-xs font-bold text-gray-500 tracking-wider uppercase'>
                 {filterMyRequests ? 'My Requests' : 'Community Feed'} ({displayedPrayers.length})
@@ -471,6 +509,16 @@ export default function Home() {
                     </div>
                   </div>
                   
+                  {prayer.tags && prayer.tags.length > 0 && (
+                      <div className='flex flex-wrap gap-1 mt-2'>
+                        {prayer.tags.map((tag) => (
+                          <span key={tag} className='text-[10px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full'>
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                  )}
+
                   <p className="text-sm text-gray-600 whitespace-pre-wrap leading-relaxed">{prayer.description}</p>
 
                   <div className="flex items-center justify-between pt-2 border-t border-gray-100 text-xs text-gray-400">

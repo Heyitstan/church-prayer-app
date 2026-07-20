@@ -1,9 +1,11 @@
 'use client';
 
 import {useState} from 'react';
+import { useRouter } from 'next/navigation';
 import {supabase} from './supabaseClient';
 
-export default function Auth({onAuthSuccess}) {
+export default function Auth() {
+  const router = useRouter();
   const [isSignUp, setIsSignUp] = useState(false);
   const [resetMode, setResetMode] = useState(false);
   const [email, setEmail] = useState('');
@@ -32,7 +34,8 @@ export default function Auth({onAuthSuccess}) {
         
         // 2. If Supabase auto-logs them in, flip the screen immediately
         if (data?.session) {
-          if (onAuthSuccess) onAuthSuccess();
+          router.refresh();
+          router.push('/');
         } else {
           alert('Account created! Please check your email or disable email confirmation in your Supabase dashboard.');
         }
@@ -40,7 +43,8 @@ export default function Auth({onAuthSuccess}) {
         // 3. Regular Sign In path
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        if (onAuthSuccess) onAuthSuccess();
+        router.refresh();
+        router.push('/');
       }
     } catch (error) {
       setErrorMsg(error.message);
@@ -57,7 +61,7 @@ export default function Auth({onAuthSuccess}) {
       const {error} = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin,
+          redirectTo: `${window.location.origin}/auth/callback`,
         },
       });
 

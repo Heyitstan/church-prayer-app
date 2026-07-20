@@ -197,7 +197,8 @@ export default function Home() {
       setIsEditingBanner(false);
       toast.success('Banner updated successfully!');
     } catch (err) {
-      toast.error(`Failed to update banner: ${err.message}`);
+      console.error(`Failed to update banner: ${err.message}`);
+      toast.error('Banner was unable to be updated!');
     }
   };
 
@@ -239,7 +240,7 @@ export default function Home() {
       if (error) throw error;
     } catch (error) {
       console.error(error.message);
-      toast.error(`Failed to delete request: ${error.message}`);
+      toast.error(`Failed to delete request.`);
     }
   }
 
